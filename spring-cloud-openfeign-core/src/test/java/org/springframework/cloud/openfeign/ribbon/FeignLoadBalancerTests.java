@@ -18,11 +18,15 @@
 package org.springframework.cloud.openfeign.ribbon;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+import com.netflix.client.ClientException;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -42,6 +46,9 @@ import feign.Request;
 import feign.RequestTemplate;
 import feign.Response;
 import feign.Request.Options;
+import org.springframework.cloud.openfeign.support.FeignConstants;
+
+import javax.annotation.Nullable;
 
 import static com.netflix.client.config.CommonClientConfigKey.ConnectTimeout;
 import static com.netflix.client.config.CommonClientConfigKey.IsSecure;
@@ -166,6 +173,37 @@ public class FeignLoadBalancerTests {
 
 		assertThat(cloneRequest.url(),is(url));
 
+	}
+
+	@Test
+	public void testSetLoadBalancerKey() throws Exception {
+		when(this.config.get(IsSecure)).thenReturn(false);
+
+		List<String> param = Arrays.asList(new String[] {"666666"});
+		final List<String> result = new ArrayList<>(0);
+
+		this.feignLoadBalancer = new FeignLoadBalancer(this.lb, this.config,
+				this.inspector){
+			@Override
+			public Server getServerFromLoadBalancer(@Nullable URI original, @Nullable Object loadBalancerKey) throws ClientException {
+				result.add(((List<String>)loadBalancerKey).get(0));
+				return super.getServerFromLoadBalancer(original, loadBalancerKey);
+			}
+		};
+		Request request = new RequestTemplate().method("GET").append("http://foo/")
+				.header(FeignConstants.LOAD_BALANCER_KEY_HEADER_KEY, param)
+				.request();
+		RibbonRequest ribbonRequest = new RibbonRequest(this.delegate, request,
+				new URI(request.url()));
+
+		Response response = Response.create(200, "Test",
+				Collections.<String, Collection<String>> emptyMap(), new byte[0]);
+		when(this.delegate.execute(any(Request.class), any(Options.class)))
+				.thenReturn(response);
+
+		RibbonResponse resp = this.feignLoadBalancer.executeWithLoadBalancer(ribbonRequest, null);
+
+		assertThat(param.get(0), is(result.get(0)));
 	}
 
 }
