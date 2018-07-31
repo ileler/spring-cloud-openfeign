@@ -186,12 +186,13 @@ public class FeignLoadBalancerTests {
 				this.inspector){
 			@Override
 			public Server getServerFromLoadBalancer(@Nullable URI original, @Nullable Object loadBalancerKey) throws ClientException {
-				result.add(((List<String>)loadBalancerKey).get(0));
+				if (loadBalancerKey != null && loadBalancerKey instanceof List) {
+					result.add(((List<String>)loadBalancerKey).get(0));
+				}
 				return super.getServerFromLoadBalancer(original, loadBalancerKey);
 			}
 		};
 		Request request = new RequestTemplate().method("GET").append("http://foo/")
-				.header(FeignConstants.LOAD_BALANCER_KEY_HEADER_KEY, param)
 				.request();
 		RibbonRequest ribbonRequest = new RibbonRequest(this.delegate, request,
 				new URI(request.url()));
@@ -201,7 +202,17 @@ public class FeignLoadBalancerTests {
 		when(this.delegate.execute(any(Request.class), any(Options.class)))
 				.thenReturn(response);
 
-		RibbonResponse resp = this.feignLoadBalancer.executeWithLoadBalancer(ribbonRequest, null);
+		this.feignLoadBalancer.executeWithLoadBalancer(ribbonRequest, null);
+
+		assertThat(0, is(result.size()));
+
+		request = new RequestTemplate().method("GET").append("http://foo/")
+				.header(FeignConstants.LOAD_BALANCER_KEY_HEADER_KEY, param)
+				.request();
+		ribbonRequest = new RibbonRequest(this.delegate, request,
+				new URI(request.url()));
+
+		this.feignLoadBalancer.executeWithLoadBalancer(ribbonRequest, null);
 
 		assertThat(param.get(0), is(result.get(0)));
 	}
