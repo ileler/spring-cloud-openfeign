@@ -117,7 +117,7 @@ public class FeignLoadBalancer extends
 
 	protected void customizeLoadBalancerCommandBuilder(final RibbonRequest request, final IClientConfig config,
 													   final LoadBalancerCommand.Builder<RibbonResponse> builder) {
-		builder.withServerLocator(request.getRequest().headers().get(FeignConstants.LOAD_BALANCER_KEY_HEADER_KEY));
+		builder.withServerLocator(request.getLoadBalancerKey());
 	}
 
 	protected static class RibbonRequest extends ClientRequest implements Cloneable {
@@ -128,6 +128,7 @@ public class FeignLoadBalancer extends
 		protected RibbonRequest(Client client, Request request, URI uri) {
 			this.client = client;
 			setUri(uri);
+			setLoadBalancerKey(request.headers().get(FeignConstants.LOAD_BALANCER_KEY_HEADER_KEY));
 			this.request = toRequest(request);
 		}
 
